@@ -139,17 +139,37 @@ levels(mytrain$education) <- c(levels(mytrain$education), "none")
 mytrain$education[is.na(mytrain$education)] <- "none"
 levels(myvalidate$education) <- c(levels(myvalidate$education), "none")
 myvalidate$education[is.na(myvalidate$education)] <- "none"
+levels(test$education) <- c(levels(test$education), "none")
+test$education[is.na(test$education)] <- "none"
 ```
 
 ## Model Selection
 Step-wise deviance on basic logistic model (binomial fam)
 ```{r}
-# Null Model
-model0 = glm(formula = suppdem ~ 1, family = binomial, data = mytrain)
-# First Predictor
-model1 = glm(formula = suppdem ~ sex, family = binomial, data = mytrain)
-anova(model0, model1, test="Chisq")
-#
+stepwise_deviance_selector(mytrain, c(1))
+stepwise_deviance_selector(mytrain, c("combined_ethnicity_4way"))
+stepwise_deviance_selector(mytrain, c("combined_ethnicity_4way", "density_rural"))
+stepwise_deviance_selector(mytrain, c("combined_ethnicity_4way", "density_rural", "sex"))
+stepwise_deviance_selector(mytrain, c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion"))
+stepwise_deviance_selector(mytrain, c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor"))
+stepwise_deviance_selector(mytrain, c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1"))
+stepwise_deviance_selector(within(mytrain, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban"))
+stepwise_deviance_selector(within(mytrain, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor"))
+mytrain.na = na.convert.mean(mytrain)
+midpoint_model= glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + cnty_pct_evangelical.na,
+            family = binomial, data = mytrain.na)
+preds = predict(midpoint_model, data=mytrain.na, type="response")
+logLoss(mytrain.na$suppdem, preds)
+
+# Midpoint model on test data
+myval.na = na.convert.mean(myvalidate)
+predsval = predict(midpoint_model, data=myval.na, type="response")
+logLoss(myval.na$suppdem, predsval)
+
+test.na = na.convert.mean(test)
+testpreds = predict(midpoint_model, newdata=test.na, type="response")
+testpreds = setNames(data.frame(testpreds), c("suppdem"))
+write.csv(testpreds, "./midpoint_model_test.csv")
 ```
 
 ```{r}
@@ -159,6 +179,7 @@ stepwise_deviance_selector = function (mytrain, selected_predictors)
             family = binomial, data = mytrain)
   pval = 0.05
   varname = ""
+  missing = FALSE
   for (var in names(mytrain)){
     if (var == "suppdem" | var %in% selected_predictors) next
     if(anyNA(mytrain[[var]])) {
@@ -170,6 +191,7 @@ stepwise_deviance_selector = function (mytrain, selected_predictors)
       if (anova(model0, model, test="Chisq")$`Pr(>Chi)`[2] < pval){
         varname = var
         pval = anova(model0, model, test="Chisq")$`Pr(>Chi)`[2]
+        missing = TRUE
       }
     }
     else{
@@ -179,10 +201,11 @@ stepwise_deviance_selector = function (mytrain, selected_predictors)
       if (anova(model0, model, test="Chisq")$`Pr(>Chi)`[2] < pval){
         varname = var
         pval = anova(model0, model, test="Chisq")$`Pr(>Chi)`[2]
+        missing = FALSE
       }
     }
   }
-  return(c(varname,pval))
+  return(c(varname, missing, pval))
 }
 ```
 ### Testing

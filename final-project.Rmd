@@ -83,27 +83,44 @@ knitr::include_graphics("./pset4_q1.jpg")
 
 ## Introduction and Setup
 ```{r}
-library(brglm)
-library(aod)
-library(faraway)
-library(nnet)
-library(arm)
-
+#library(brglm)
+#library(aod)
+#library(faraway)
+#library(nnet)
+#library(arm)
+install.packages("Metrics")
+library(Metrics)
 train <- read.csv("./Data/train.csv")
 test <- read.csv("./Data/test.csv")
 ```
 ## Explantory Data Analysis (EDA)
 ### Predictior Variables
 Analysis on each predictors to come later
-### Summary Statistics
+### Summary Statistics and Null Model
+Run summary statistics on the train data and, then, fit the full dataset with all predictors to a basic glm model.
+Conclusions:
+1. get rid of one of 'density_rural', 'density_suburban', or 'density_urban' -> sums to 1
+2. Change education to ordinal layers and not categorical values? OR change base-line to "no hs degree"
 ```{r}
 summary(train)
+head(train)
+train$suppdem = as.numeric(train$suppdem) - 1
+# Missing Value Mean Imputer
+train.na = na.convert.mean(train)
+full <- glm(suppdem ~ ., family = binomial, data = train.na)
+summary(full)
+preds = predict(full, data=train.na, type="response")
+logLoss(train.na$suppdem, preds)
 ```
-
-## Training
 
 ## Model Selection
 
-## Testing
+### Testing
+### Step-wise Deviance
+### Fitting various models
+### Data Imputer
 
-## Results and Conclusions
+
+## Predictions
+### Results and Conclusions
+### Log-loss 

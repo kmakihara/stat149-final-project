@@ -16,12 +16,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 #install.packages("car")
 #install.packages("kyotil")
-#install.packages("brglm")
 #install.packages("arm")
 
-library(faraway)
-library(nnet)
-library(arm)
 
 ```
 
@@ -85,3 +81,29 @@ Write-up paragraphs and \alpha sign and shit.
 knitr::include_graphics("./pset4_q1.jpg")
 ```
 
+## Introduction and Setup
+```{r}
+library(brglm)
+library(aod)
+library(faraway)
+library(nnet)
+library(arm)
+
+train <- read.csv("./Data/train.csv")
+test <- read.csv("./Data/test.csv")
+```
+## Explantory Data Analysis (EDA)
+### Predictior Variables
+Analysis on each predictors to come later
+### Summary Statistics
+```{r}
+summary(train)
+```
+
+## Training
+
+## Model Selection
+
+## Testing
+
+## Results and Conclusions

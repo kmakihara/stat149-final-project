@@ -81,27 +81,9 @@ Write-up paragraphs and \alpha sign and shit.
 knitr::include_graphics("./pset4_q1.jpg")
 ```
 
-## Introduction and Setup
 ```{r}
-#library(brglm)
-#library(aod)
-#library(faraway)
-#library(nnet)
-#library(arm)
-install.packages("Metrics")
-library(Metrics)
-train <- read.csv("./Data/train.csv")
-test <- read.csv("./Data/test.csv")
-```
-## Explantory Data Analysis (EDA)
-### Predictior Variables
-Analysis on each predictors to come later
-### Summary Statistics and Null Model
-Run summary statistics on the train data and, then, fit the full dataset with all predictors to a basic glm model.
-Conclusions:
-1. get rid of one of 'density_rural', 'density_suburban', or 'density_urban' -> sums to 1
-2. Change education to ordinal layers and not categorical values? OR change base-line to "no hs degree"
-```{r}
+# OUR FIRST ATTEMPTS AT UNDERSTANDING DATASET
+#Run summary statistics on the train data and, then, fit the full dataset with all predictors to a basic glm model.
 summary(train)
 head(train)
 train$suppdem = as.numeric(train$suppdem) - 1
@@ -113,8 +95,96 @@ preds = predict(full, data=train.na, type="response")
 logLoss(train.na$suppdem, preds)
 ```
 
-## Model Selection
+## Introduction and Setup
+### Download Packages & Load Dataset
+```{r}
+#library(brglm)
+#library(aod)
+#library(faraway)
+#library(nnet)
+#library(arm)
+#library(Metrics)
+train <- read.csv("./Data/train.csv")
+test <- read.csv("./Data/test.csv")
+```
+### Split Train into Train and Validate
+```{r}
+set.seed(149) 
+# 70% of train as myrtrain and 30% as myvalidate
+sample <- sample.int(n = nrow(train), size = floor(.70*nrow(train)), replace = F)
+mytrain <- train[sample, ]
+myvalidate  <- train[-sample, ]
+```
+## Explantory Data Analysis (EDA)
+### Predictior Variables
+Analysis on each predictors to come later
+```{r}
+names(mytrain)
+```
 
+### Summary Statistics
+get rid of one of 'density_rural', 'density_suburban', or 'density_urban' -> sums to 1
+Change education to ordinal layers and not categorical values? OR change base-line to "no hs degree"
+```{r}
+summary(mytrain)
+```
+### Conversion of Indepdent Variable
+```{r}
+mytrain$suppdem = as.numeric(mytrain$suppdem) - 1
+myvalidate$suppdem = as.numeric(myvalidate$suppdem) - 1
+```
+### Conversion of Education
+```{r}
+levels(mytrain$education) <- c(levels(mytrain$education), "none")
+mytrain$education[is.na(mytrain$education)] <- "none"
+levels(myvalidate$education) <- c(levels(myvalidate$education), "none")
+myvalidate$education[is.na(myvalidate$education)] <- "none"
+```
+
+## Model Selection
+Step-wise deviance on basic logistic model (binomial fam)
+```{r}
+# Null Model
+model0 = glm(formula = suppdem ~ 1, family = binomial, data = mytrain)
+# First Predictor
+model1 = glm(formula = suppdem ~ sex, family = binomial, data = mytrain)
+anova(model0, model1, test="Chisq")
+#
+```
+
+```{r}
+stepwise_deviance_selector = function (mytrain, selected_predictors) 
+{
+  model0 = glm(formula = paste("suppdem ~ ", do.call(paste, c(as.list(selected_predictors), sep = " + "))),
+            family = binomial, data = mytrain)
+  pval = 0.05
+  varname = ""
+  for (var in names(mytrain)){
+    if (var == "suppdem" | var %in% selected_predictors) next
+    if(anyNA(mytrain[[var]])) {
+      mytrain.na = na.convert.mean(mytrain)
+      na.var = paste(var, ".na", sep="")
+      selected = c(var, na.var, selected_predictors)
+      model = glm(formula = paste("suppdem ~ ", do.call(paste, c(as.list(selected), sep = " + "))),
+                  family = binomial, data = mytrain.na)
+      if (anova(model0, model, test="Chisq")$`Pr(>Chi)`[2] < pval){
+        varname = var
+        pval = anova(model0, model, test="Chisq")$`Pr(>Chi)`[2]
+      }
+    }
+    else{
+      selected = c(var, selected_predictors)
+      model = glm(formula = paste("suppdem ~ ", do.call(paste, c(as.list(selected), sep = " + ")))
+                  , family = binomial, data = mytrain)
+      if (anova(model0, model, test="Chisq")$`Pr(>Chi)`[2] < pval){
+        varname = var
+        pval = anova(model0, model, test="Chisq")$`Pr(>Chi)`[2]
+      }
+    }
+  }
+  return(c(varname,pval))
+}
+```
 ### Testing
 ### Step-wise Deviance
 ### Fitting various models

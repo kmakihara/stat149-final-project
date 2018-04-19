@@ -8,7 +8,7 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
+#### Set-Up
 ```{r, include=FALSE, echo=FALSE}
 #### Set up process here ####
 #install.packages("faraway")
@@ -21,6 +21,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```
 
+#### na.convert.mean from lecture notes
 ```{r include=FALSE}
 #### Include R Scripts without including in the markdown ####
 na.convert.mean = function (frame) 
@@ -70,6 +71,61 @@ na.convert.mean = function (frame)
         }
     }
     frame
+}
+```
+
+#### stepwise_deviance_selector takes in a mytrain and a list of already selected_predictors 
+```{r}
+stepwise_deviance_selector = function (mytrain, selected_predictors, log=FALSE) 
+{
+  model0 = glm(formula = paste("suppdem ~ ", do.call(paste, c(as.list(selected_predictors), sep = " + "))),
+            family = binomial, data = mytrain)
+  pval = 0.05
+  varname = ""
+  missing = FALSE
+  if (log == TRUE){
+    mytrain$census_median_income = log(mytrain$census_median_income)
+  }
+  for (var in names(mytrain)){
+    if (var == "suppdem" | var %in% selected_predictors) next
+    if(anyNA(mytrain[[var]])) {
+      na.var = paste(var, ".na", sep="")
+      selected = c(var, na.var, selected_predictors)
+      if (log == TRUE){
+        mytrain.log.na <- mytrain.na
+        mytrain.log.na$census_median_income = log(mytrain.log.na$census_median_income)
+        model = glm(formula = paste("suppdem ~ ", do.call(paste, c(as.list(selected), sep = " + "))),
+                    family = binomial, data = mytrain.log.na)
+        if (anova(model0, model, test="Chisq")$`Pr(>Chi)`[2] < pval){
+          varname = var
+          pval = anova(model0, model, test="Chisq")$`Pr(>Chi)`[2]
+          missing = TRUE
+        }
+      }
+      else{
+        mytrain.na = na.convert.mean(mytrain)
+        model = glm(formula = paste("suppdem ~ ", do.call(paste, c(as.list(selected), sep = " + "))),
+                    family = binomial, data = mytrain.na)
+        if (anova(model0, model, test="Chisq")$`Pr(>Chi)`[2] < pval){
+          varname = var
+          pval = anova(model0, model, test="Chisq")$`Pr(>Chi)`[2]
+          missing = TRUE
+        }
+      }
+      
+    }
+    else{
+      selected = c(var, selected_predictors)
+      model = glm(formula = paste("suppdem ~ ", do.call(paste, c(as.list(selected), sep = " + ")))
+                  , family = binomial, data = mytrain)
+      if (anova(model0, model, test="Chisq")$`Pr(>Chi)`[2] < pval){
+        varname = var
+        pval = anova(model0, model, test="Chisq")$`Pr(>Chi)`[2]
+        missing = FALSE
+      }
+    }
+  }
+  return(c(varname, missing, pval))
 }
 ```
 
@@ -144,7 +200,7 @@ test$education[is.na(test$education)] <- "none"
 ```
 
 ## Model Selection
-Step-wise deviance on basic logistic model (binomial fam)
+### Step-wise deviance on basic logistic model (binomial fam)
 ```{r}
 model00 = glm(formula = suppdem ~ 1, family = binomial, data = mytrain)
 stepwise_deviance_selector(mytrain, c(1))
@@ -162,33 +218,97 @@ model06 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex 
 stepwise_deviance_selector(mytrain, c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1"))
 model07 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban, family = binomial, data = within(mytrain, rm("density_urban")))
 stepwise_deviance_selector(within(mytrain, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban"))
-model07 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor, family = binomial, data = within(mytrain, rm("density_urban")))
+model08 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor, family = binomial, data = within(mytrain, rm("density_urban")))
 stepwise_deviance_selector(within(mytrain, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor"))
 mytrain.na = na.convert.mean(mytrain)
-model08 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + cnty_pct_evangelical.na, family = binomial, data = within(mytrain.na, rm("density_urban")))
-stepwise_deviance_selector(within(mytrain.na, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "cnty_pct_evangelical", "cnty_pct_evangelical.na"))
-model09 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + cnty_pct_evangelical.na + contbrel_1, family = binomial, data = within(mytrain.na, rm("density_urban")))
-stepwise_deviance_selector(within(mytrain.na, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "cnty_pct_evangelical", "cnty_pct_evangelical.na", "contbrel_1"))
-model10 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + cnty_pct_evangelical.na + contbrel_1 + single, family = binomial, data = within(mytrain.na, rm("density_urban")))
-stepwise_deviance_selector(within(mytrain.na, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "cnty_pct_evangelical", "cnty_pct_evangelical.na", "contbrel_1", "single"))
-model11 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + cnty_pct_evangelical.na + contbrel_1 + single + apparel_1, family = binomial, data = within(mytrain.na, rm("density_urban")))
-stepwise_deviance_selector(within(mytrain.na, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "cnty_pct_evangelical", "cnty_pct_evangelical.na", "contbrel_1", "single", "apparel_1"))
-model12 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + cnty_pct_evangelical.na + contbrel_1 + single + apparel_1 + education, family = binomial, data = within(mytrain.na, rm("density_urban")))
-stepwise_deviance_selector(within(mytrain.na, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "cnty_pct_evangelical", "cnty_pct_evangelical.na", "contbrel_1", "single", "apparel_1", "education"))
-model13 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + cnty_pct_evangelical.na + contbrel_1 + single + apparel_1 + education + cat_1, family = binomial, data = within(mytrain.na, rm("density_urban")))
-stepwise_deviance_selector(within(mytrain.na, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "cnty_pct_evangelical", "cnty_pct_evangelical.na", "contbrel_1", "single", "apparel_1", "education", "cat_1"))
-model13 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + cnty_pct_evangelical.na + contbrel_1 + single + apparel_1 + education + cat_1 + num_children, family = binomial, data = within(mytrain.na, rm("density_urban")))
-stepwise_deviance_selector(within(mytrain.na, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "cnty_pct_evangelical", "cnty_pct_evangelical.na", "contbrel_1", "single", "apparel_1", "education", "cat_1", "num_children"))
-model14.1 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + cnty_pct_evangelical.na + contbrel_1 + single + apparel_1 + education + cat_1 + num_children + cnty_pct_religious.na, family = binomial, data = within(mytrain.na, rm("density_urban")))
-model14.2 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + cnty_pct_evangelical.na + contbrel_1 + single + apparel_1 + education + cat_1 + num_children + cnty_pct_religious.na + cnty_pct_religious, family = binomial, data = within(mytrain.na, rm("density_urban")))
-anova(model14.1, model14.2, test="Chisq")
-stepwise_deviance_selector(within(mytrain.na, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "cnty_pct_evangelical", "cnty_pct_evangelical.na", "contbrel_1", "single", "apparel_1", "education", "cat_1", "num_children", "cnty_pct_religious.na"))
-mytrain.na.loginc <- mytrain.na
-mytrain.na.loginc$census_median_income = log(mytrain.na.loginc$census_median_income)
-stepwise_deviance_selector(within(mytrain.na.loginc, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "cnty_pct_evangelical", "cnty_pct_evangelical.na", "contbrel_1", "single", "apparel_1", "education", "cat_1", "num_children", "cnty_pct_religious.na"))
-anova(model00, model01, model02, model03, model04, model05, model06, model07, model08, model09, model10, model11, model12, model13, model14.1, test="Chisq")
+model09.1 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical, family = binomial, data = within(mytrain.na, rm("density_urban")))
+model09.2 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + cnty_pct_evangelical.na, family = binomial, data = within(mytrain.na, rm("density_urban")))
+anova(model08.1, model08.2, test="Chisq")
+stepwise_deviance_selector(within(mytrain.na, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "cnty_pct_evangelical"))
+model10 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1, family = binomial, data = within(mytrain.na, rm("density_urban")))
+stepwise_deviance_selector(within(mytrain.na, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "cnty_pct_evangelical", "contbrel_1"))
+model11 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single, family = binomial, data = within(mytrain.na, rm("density_urban")))
+stepwise_deviance_selector(within(mytrain.na, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "cnty_pct_evangelical", "contbrel_1", "single"))
+model12 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single + apparel_1, family = binomial, data = within(mytrain.na, rm("density_urban")))
+stepwise_deviance_selector(within(mytrain.na, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "cnty_pct_evangelical", "contbrel_1", "single", "apparel_1"))
+model13 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single + apparel_1 + education, family = binomial, data = within(mytrain.na, rm("density_urban")))
+stepwise_deviance_selector(within(mytrain.na, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "cnty_pct_evangelical", "contbrel_1", "single", "apparel_1", "education"))
+model14 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single + apparel_1 + education + cat_1, family = binomial, data = within(mytrain.na, rm("density_urban")))
+stepwise_deviance_selector(within(mytrain.na, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "cnty_pct_evangelical", "contbrel_1", "single", "apparel_1", "education", "cat_1"))
+model15 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single + apparel_1 + education + cat_1 + num_children, family = binomial, data = within(mytrain.na, rm("density_urban")))
+stepwise_deviance_selector(within(mytrain.na, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "cnty_pct_evangelical", "contbrel_1", "single", "apparel_1", "education", "cat_1", "num_children"))
+anova(model00, model01, model02, model03, model04, model05, model06, model07, model08, model09.1, model10, model11, model12, model13, model14, model15, test="Chisq")
 ```
-# MIDPOINT STUFF: REMOVE THIS CHUNK
+
+
+### Selected Model 'model14.1' Prediction
+```{r}
+preds = predict(model14.1, data = mytrain.na, type="response")
+logLoss(mytrain.na$suppdem, preds)
+
+test.na = na.convert.mean(test)
+testpreds = predict(model14.1, newdata=test.na, type="response")
+testpreds = setNames(data.frame(testpreds), c("suppdem"))
+write.csv(testpreds, "./model14_1_test.csv")
+```
+
+### Step-wise deviance on basic poisson model 
+
+### Repeat above, but log median income
+```{r}
+mytrain.loginc <- mytrain
+mytrain.loginc$census_median_income = log(mytrain.loginc$census_median_income)
+mytrain.loginc.na <- mytrain.na
+mytrain.loginc.na$census_median_income = log(mytrain.loginc.na$census_median_income)
+
+model16 = glm(formula = suppdem ~ 1, family = binomial, data = mytrain.loginc)
+stepwise_deviance_selector(mytrain.loginc, c(1), log = TRUE)
+model17 = glm(formula = suppdem ~ combined_ethnicity_4way, family = binomial, data = mytrain.loginc)
+stepwise_deviance_selector(mytrain.loginc, c("combined_ethnicity_4way"), log = TRUE)
+model18 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural, family = binomial, data = mytrain.loginc)
+stepwise_deviance_selector(mytrain.loginc, c("combined_ethnicity_4way", "density_rural"), log = TRUE)
+model19 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex, family = binomial, data = mytrain.loginc)
+stepwise_deviance_selector(mytrain.loginc, c("combined_ethnicity_4way", "density_rural", "sex"), log = TRUE)
+model20 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion, family = binomial, data = mytrain.loginc)
+stepwise_deviance_selector(mytrain.loginc, c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion"), log = TRUE)
+model21 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor, family = binomial, data = mytrain.loginc)
+stepwise_deviance_selector(mytrain.loginc, c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor"), log = TRUE)
+model22 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1, family = binomial, data = mytrain.loginc)
+stepwise_deviance_selector(mytrain.loginc, c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1"), log = TRUE)
+model23 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban, family = binomial, data = within(mytrain.loginc, rm("density_urban")))
+stepwise_deviance_selector(within(mytrain.loginc, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban"), log = TRUE)
+model24 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor, family = binomial, data = within(mytrain.loginc, rm("density_urban")))
+stepwise_deviance_selector(within(mytrain.loginc, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor"), log = TRUE)
+
+model25.1 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical, family = binomial, data = within(mytrain.loginc.na, rm("density_urban")))
+model25.2 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + cnty_pct_evangelical.na, family = binomial, data = within(mytrain.loginc.na, rm("density_urban")))
+anova(model25.1, model25.2, test="Chisq")
+
+stepwise_deviance_selector(within(mytrain.na, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "cnty_pct_evangelical"), log = TRUE)
+model26 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1, family = binomial, data = within(mytrain.loginc, rm("density_urban")))
+stepwise_deviance_selector(within(mytrain.na, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "cnty_pct_evangelical", "contbrel_1"), log = TRUE)
+model27 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single, family = binomial, data = within(mytrain.loginc, rm("density_urban")))
+stepwise_deviance_selector(within(mytrain.loginc, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "cnty_pct_evangelical", "contbrel_1", "single"))
+# ERROR ! FUCK ! GONNA STOP
+```
+
+
+### Step-wise deviance on basic probit & logit model (binomial fam)
+ Perhaps we should improve our stepwise_deviance_selector to do the loop exhaustively until it reaches insignificance
+
+### Testing
+### Step-wise Deviance
+### Fitting various models
+### Data Imputer
+
+
+## Predictions
+### Results and Conclusions
+### Log-loss 
+
+
+
+### MIDPOINT STUFF: REMOVE THIS CHUNK
 ```{r}
 stepwise_deviance_selector(within(mytrain, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "cnty_pct_evangelical"))
 
@@ -208,60 +328,3 @@ testpreds = predict(midpoint_model, newdata=test.na, type="response")
 testpreds = setNames(data.frame(testpreds), c("suppdem"))
 write.csv(testpreds, "./midpoint_model_test.csv")
 ```
-
-## Selected Model Prediction
-```{r}
-preds = predict(model14.1, data = mytrain.na, type="response")
-logLoss(mytrain.na$suppdem, preds)
-
-test.na = na.convert.mean(test)
-testpreds = predict(model14.1, newdata=test.na, type="response")
-testpreds = setNames(data.frame(testpreds), c("suppdem"))
-write.csv(testpreds, "./model14_1_test.csv")
-```
-
-```{r}
-stepwise_deviance_selector = function (mytrain, selected_predictors) 
-{
-  model0 = glm(formula = paste("suppdem ~ ", do.call(paste, c(as.list(selected_predictors), sep = " + "))),
-            family = binomial, data = mytrain)
-  pval = 0.05
-  varname = ""
-  missing = FALSE
-  for (var in names(mytrain)){
-    if (var == "suppdem" | var %in% selected_predictors) next
-    if(anyNA(mytrain[[var]])) {
-      mytrain.na = na.convert.mean(mytrain)
-      na.var = paste(var, ".na", sep="")
-      selected = c(var, na.var, selected_predictors)
-      model = glm(formula = paste("suppdem ~ ", do.call(paste, c(as.list(selected), sep = " + "))),
-                  family = binomial, data = mytrain.na)
-      if (anova(model0, model, test="Chisq")$`Pr(>Chi)`[2] < pval){
-        varname = var
-        pval = anova(model0, model, test="Chisq")$`Pr(>Chi)`[2]
-        missing = TRUE
-      }
-    }
-    else{
-      selected = c(var, selected_predictors)
-      model = glm(formula = paste("suppdem ~ ", do.call(paste, c(as.list(selected), sep = " + ")))
-                  , family = binomial, data = mytrain)
-      if (anova(model0, model, test="Chisq")$`Pr(>Chi)`[2] < pval){
-        varname = var
-        pval = anova(model0, model, test="Chisq")$`Pr(>Chi)`[2]
-        missing = FALSE
-      }
-    }
-  }
-  return(c(varname, missing, pval))
-}
-```
-### Testing
-### Step-wise Deviance
-### Fitting various models
-### Data Imputer
-
-
-## Predictions
-### Results and Conclusions
-### Log-loss 

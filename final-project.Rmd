@@ -8,19 +8,6 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-#### Set-Up
-```{r, include=FALSE, echo=FALSE}
-#### Set up process here ####
-#install.packages("faraway")
-#install.packages("nnet")
-
-#install.packages("car")
-#install.packages("kyotil")
-#install.packages("arm")
-
-
-```
-
 #### na.convert.mean from lecture notes
 ```{r include=FALSE}
 #### Include R Scripts without including in the markdown ####
@@ -143,6 +130,7 @@ stepwise_deviance_selector = function (mytrain, selected_predictors, log=FALSE, 
   return(c(varname, missing, pval, na.indicator))
 }
 ```
+
 #### interaction selector
 ```{r}
 interaction_deviance_selector = function (mytrain, selected_predictors, cat_predictors, num_predictors, alpha = 0.05) 
@@ -173,47 +161,42 @@ interaction_deviance_selector = function (mytrain, selected_predictors, cat_pred
 ## Introduction and Setup
 ### Download Packages & Load Dataset
 ```{r}
-#library(brglm)
-#library(aod)
-#library(nnet)
-#library(arm)
-#library(faraway)
-#library(Metrics)
+library(kyotil)
+library(brglm)
+library(aod)
+library(nnet)
+library(arm)
+library(faraway)
+library(Metrics)
+```
+
+```{r}
 train <- read.csv("./Data/train.csv")
 test <- read.csv("./Data/test.csv")
 ```
-### Split Train into Train and Validate
-```{r}
-set.seed(149) 
-# 70% of train as myrtrain and 30% as myvalidate
-sample <- sample.int(n = nrow(train), size = floor(.70*nrow(train)), replace = F)
-mytrain <- train[sample, ]
-myvalidate  <- train[-sample, ]
-```
+
 ## Explantory Data Analysis (EDA)
 ### Predictior Variables
 Analysis on each predictors to come later
 ```{r}
-names(mytrain)
+names(train)
 ```
 
 ### Summary Statistics
 get rid of one of 'density_rural', 'density_suburban', or 'density_urban' -> sums to 1
 Change education to ordinal layers and not categorical values? OR change base-line to "no hs degree"
 ```{r}
-summary(mytrain)
+summary(train)
 ```
 ### Conversion of Indepdent Variable
 ```{r}
+mytrain <- train
 mytrain$suppdem = as.numeric(mytrain$suppdem) - 1
-myvalidate$suppdem = as.numeric(myvalidate$suppdem) - 1
 ```
 ### Conversion of Education
 ```{r}
 levels(mytrain$education) <- c(levels(mytrain$education), "none")
 mytrain$education[is.na(mytrain$education)] <- "none"
-levels(myvalidate$education) <- c(levels(myvalidate$education), "none")
-myvalidate$education[is.na(myvalidate$education)] <- "none"
 levels(test$education) <- c(levels(test$education), "none")
 test$education[is.na(test$education)] <- "none"
 ```
@@ -260,14 +243,17 @@ anova(model00, model01, model02, model03, model04, model05, model06, model07, mo
 ```
 ### Selected Model Prediction
 ```{r}
-preds = predict(model15, data = mytrain.na, type="response")
+model_nointeraction = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single + apparel_1 + education + cat_1 + num_children, family = binomial, data = within(mytrain.na, rm("density_urban")))
+
+preds = predict(model_nointeraction, data = mytrain.na, type="response")
 logLoss(mytrain.na$suppdem, preds)
 
 test.na = na.convert.mean(test)
 testpreds = predict(model15, newdata=test.na, type="response")
 testpreds = setNames(data.frame(testpreds), c("suppdem"))
-write.csv(testpreds, "./model15_test.csv")
+write.csv(testpreds, "./model_nointeraction_test.csv")
 ```
+
 ### Repeat above, but log median income
 ```{r}
 mytrain.loginc.na <- mytrain.na
@@ -318,11 +304,81 @@ test.logna = na.convert.mean(test)
 test.logna$census_median_income = log(test.logna$census_median_income)
 test.logna$ppi = log(test.logna$ppi)
 
-testpreds = predict(model15, newdata=test.logna, type="response")
+testpreds = predict(model_interaction, newdata=test.logna, type="response")
 testpreds = setNames(data.frame(testpreds), c("suppdem"))
 write.csv(testpreds, "./model_interaction_test.csv")
 ```
 
+
+```{r}
+# fitted vs standardized residuals
+plot(fitted(model_interaction), rstandard(model_interaction),
+           xlab="Averaged fitted probabilities",
+           ylab="Deviance residuals", ylim = c(-3,3), pch=1,
+           main="Fitted vs Standardized Residual Plot")
+abline(h=2,lty=2,col="red")
+abline(h=-2,lty=2,col="red")
+# cooks
+cooks = cooks.distance(model_interaction)
+plot(cooks, type="h", lwd=2, xlab="Observation index", ylab="Cook's distances",
+     main="Cook's Distances")
+abline(h=1,lty=2,col="red")
+# jacknefied
+plot(fitted(model_interaction), rstudent(model_interaction),
+           xlab="Averaged fitted probabilities",
+           ylab="Jacknified residuals", ylim = c(-3,3), pch=1,
+           main="Fitted vs Studentized Residual Plot")
+abline(h=2,lty=2,col="red")
+abline(h=-2,lty=2,col="red")
+# Averaged
+binnedplot(fitted(model_interaction), residuals(model_interaction,type="response"),xlab="Averaged fitted probabilities",ylab="Averaged residuals",pch=19, col.pts="red", cex.pts=1.5,main="Fitted vs residual plot")
+abline(h=0,lty=2,col="green")
+
+
+# Hosmer-Lemeshow test
+# Partition fitted values into 10 groups
+print(hosmerlem(model_interaction$y, fitted(model_interaction), g=10))
+# Partition fitted values into 6 groups
+print(hosmerlem(model_interaction$y, fitted(model_interaction), g=6))
+```
+### While-loop for Interactions amognst numerical
+
+### Selected Model w/ Interaction Prediction
+```{r}
+model_interaction = glm(formula = paste("suppdem ~ ", do.call(paste, c(as.list(predictors_interactions), sep = " + "))),
+            family = binomial, data = looptrain)
+
+test.logna = na.convert.mean(test)
+test.logna$census_median_income = log(test.logna$census_median_income)
+test.logna$ppi = log(test.logna$ppi)
+
+testpreds = predict(model_interaction, newdata=test.logna, type="response")
+testpreds = setNames(data.frame(testpreds), c("suppdem"))
+write.csv(testpreds, "./model_interaction_test.csv")
+```
+
+
+
+
+
+
+
+
+
+
+### Model Comparisons 
+```{r}
+model_basic = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single + apparel_1 + education + cat_1 + num_children, family = binomial, data = within(mytrain.loginc.na, rm("density_urban")))
+model_interaction = glm(formula = paste("suppdem ~ ", do.call(paste, c(as.list(predictors_interactions), sep = " + ")))
+            , family = binomial, data = within(mytrain.loginc.na, rm("density_urban")))
+model_basic_probit = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single + apparel_1 + education + cat_1 + num_children, family = binomial(link="probit"), data = within(mytrain.loginc.na, rm("density_urban")))
+model_interaction_probit = glm(formula = paste("suppdem ~ ", do.call(paste, c(as.list(predictors_interactions), sep = " + ")))
+            , family = binomial(link="probit"), data = within(mytrain.loginc.na, rm("density_urban")))
+model_basic_cloglog = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single + apparel_1 + education + cat_1 + num_children, family = binomial(link="cloglog"), data = within(mytrain.loginc.na, rm("density_urban")))
+model_interaction_cloglog = glm(formula = paste("suppdem ~ ", do.call(paste, c(as.list(predictors_interactions), sep = " + ")))
+            , family = binomial(link="cloglog"), data = within(mytrain.loginc.na, rm("density_urban")))
+anova(model_basic, model_basic_probit, model_basic_cloglog, model_interaction, model_interaction_probit, model_interaction_cloglog, test="Chisq")
+```
 ### Step-wise deviance with higher alpha
 
 

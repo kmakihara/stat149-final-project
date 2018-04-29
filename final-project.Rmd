@@ -168,6 +168,9 @@ library(nnet)
 library(arm)
 library(faraway)
 library(Metrics)
+library(randomForest)
+library(rpart)
+library(mgcv)
 ```
 
 ```{r}
@@ -202,6 +205,9 @@ test$education[is.na(test$education)] <- "none"
 ```
 
 ## Model Selection
+```{r}
+mytrain.na = na.convert.mean(mytrain)
+```
 ### Step-wise deviance on basic logistic model (binomial fam)
 ```{r}
 mytrain.na = na.convert.mean(mytrain)
@@ -245,7 +251,7 @@ anova(model00, model01, model02, model03, model04, model05, model06, model07, mo
 ```{r}
 model_nointeraction = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single + apparel_1 + education + cat_1 + num_children, family = binomial, data = within(mytrain.na, rm("density_urban")))
 
-preds = predict(model_nointeraction, data = mytrain.na, type="response")
+preds = predict(model_nointeraction, newdata = mytrain.na, type="response")
 logLoss(mytrain.na$suppdem, preds)
 
 test.na = na.convert.mean(test)
@@ -284,9 +290,9 @@ anova(model15, model32, test="Chisq")
 ### While-loop for Interactions
 ```{r}
 looptrain = within(mytrain.loginc.na, rm("density_urban"))
-categorical = c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "cnty_pct_evangelical", "contbrel_1", "single", "apparel_1", "education", "cat_1")
-numerical = c("num_children", "age", "census_median_income", "ppi")
-predictors = predictors_nointeractions
+categorical = c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "contbrel_1", "single", "apparel_1", "education", "cat_1")
+numerical = c("num_children", "age", "census_median_income", "ppi", "cnty_pct_evangelical", "cnty_pct_religious") 
+# predictors = predictors_nointeractions
 while (interaction_deviance_selector(looptrain, predictors, categorical, numerical)[1] != "")
 {
   step = interaction_deviance_selector(looptrain, predictors, categorical, numerical)
@@ -295,20 +301,6 @@ while (interaction_deviance_selector(looptrain, predictors, categorical, numeric
 print(predictors)
 predictors_interactions = predictors
 ```
-### Selected Model w/ Interaction Prediction
-```{r}
-model_interaction = glm(formula = paste("suppdem ~ ", do.call(paste, c(as.list(predictors_interactions), sep = " + "))),
-            family = binomial, data = looptrain)
-
-test.logna = na.convert.mean(test)
-test.logna$census_median_income = log(test.logna$census_median_income)
-test.logna$ppi = log(test.logna$ppi)
-
-testpreds = predict(model_interaction, newdata=test.logna, type="response")
-testpreds = setNames(data.frame(testpreds), c("suppdem"))
-write.csv(testpreds, "./model_interaction_test.csv")
-```
-
 
 ```{r}
 # fitted vs standardized residuals
@@ -323,7 +315,7 @@ cooks = cooks.distance(model_interaction)
 plot(cooks, type="h", lwd=2, xlab="Observation index", ylab="Cook's distances",
      main="Cook's Distances")
 abline(h=1,lty=2,col="red")
-# jacknefied
+# jackknifed
 plot(fitted(model_interaction), rstudent(model_interaction),
            xlab="Averaged fitted probabilities",
            ylab="Jacknified residuals", ylim = c(-3,3), pch=1,
@@ -341,24 +333,65 @@ print(hosmerlem(model_interaction$y, fitted(model_interaction), g=10))
 # Partition fitted values into 6 groups
 print(hosmerlem(model_interaction$y, fitted(model_interaction), g=6))
 ```
-### While-loop for Interactions amognst numerical
 
 ### Selected Model w/ Interaction Prediction
 ```{r}
 model_interaction = glm(formula = paste("suppdem ~ ", do.call(paste, c(as.list(predictors_interactions), sep = " + "))),
             family = binomial, data = looptrain)
 
+interaction.preds = predict(model_interaction, newdata=looptrain, type="response")
+
 test.logna = na.convert.mean(test)
 test.logna$census_median_income = log(test.logna$census_median_income)
 test.logna$ppi = log(test.logna$ppi)
+logLoss(looptrain$suppdem, interaction.preds)
 
 testpreds = predict(model_interaction, newdata=test.logna, type="response")
 testpreds = setNames(data.frame(testpreds), c("suppdem"))
 write.csv(testpreds, "./model_interaction_test.csv")
 ```
+### Parameter Smoothing
+```{r}
+model_smoothed = gam(suppdem~combined_ethnicity_4way+density_rural+liberal_donor+sex+s(cnty_pct_evangelical)
+                     +interest_in_religion+conservative_donor+guns_1+conservative_donor+single+education+density_suburban+
+                     contbrel_1+num_children+apparel_1+cat_1+s(cnty_pct_religious)+liberal_donor:census_median_income+
+                       sex:age+combined_ethnicity_4way:census_median_income+density_rural:age+education:ppi+cat_1:age+
+                       interest_in_religion:age+combined_ethnicity_4way:cnty_pct_evangelical+density_suburban:cnty_pct_religious, family = binomial, data = looptrain)
+summary(model_smoothed)
+```
+### Testing smoothed model
+```{r}
+smooth.preds = predict(model_smoothed, newdata = looptrain, type="response")
+logLoss(looptrain$suppdem, smooth.preds)
 
+testpreds = predict(model_smoothed, newdata=test.logna, type="response")
+testpreds = setNames(data.frame(testpreds), c("suppdem"))
+write.csv(testpreds, "./model_interaction_test_smoothing.csv")
+```
+### Random Forest Cross Validation
+```{r}
+cvr = rfcv(na.roughfix((within(looptrain, rm("suppdem")))),looptrain$suppdem,step=0.9)
+cbind(nvars=cvr$n.var, error.rate=cvr$error.cv)
+```
+### Random Forest
+```{r}
+sc.rf = randomForest(suppdem~combined_ethnicity_4way+density_rural+liberal_donor+sex+cnty_pct_evangelical
+                     +interest_in_religion+conservative_donor+guns_1+conservative_donor+single+education+density_suburban+
+                     contbrel_1+num_children+apparel_1+cat_1+cnty_pct_religious, m.try=32, data=looptrain, na.action=na.roughfix)
+sc.rf
+```
+```{r}
+rf.preds = predict(sc.rf, newdata=looptrain)
 
+test.logna = na.convert.mean(test)
+test.logna$census_median_income = log(test.logna$census_median_income)
+test.logna$ppi = log(test.logna$ppi)
+logLoss(looptrain$suppdem, rf.preds)
 
+testpreds = predict(sc.rf, newdata=test.logna)
+testpreds = setNames(data.frame(testpreds), c("suppdem"))
+write.csv(testpreds, "./model_rf.csv")
+```
 
 
 

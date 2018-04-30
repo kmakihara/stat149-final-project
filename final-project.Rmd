@@ -157,6 +157,25 @@ interaction_deviance_selector = function (mytrain, selected_predictors, cat_pred
 }
 ```
 
+## Abstract
+In this paper, we explore various logistic modeling methods to analyze a self-reported dataset from _BlueLabs.com_ to create a prediction model to test wheter a voter would support fot the Democratic party candidate in 2016. Our final selected prediction model is the unsmoothed binomial logistic model with selected predictors and interaction terms. Single predictors are sequentially chosen via a stepwise-deviance selection method; once there are no more single predictors to add, we also incorporate interaction terms of categorical and numerical terms using Chi-squared likelihood ratio tests. We compare our prediction results to those of a basic model without the interaction terms, the same full model trained on smoothed predictors, similar binomial models with probit and complementary-log-log link functions, and cross-validated random forest model. However, lest we overfit on our train data, we find that the aforementioned binomial logistic best predicts whether a voter supported the Democratic candidate in 2016.
+
+## Introdcution
+Before we delve into analyzing the dataset, we download various R packages, import the provided datasets, understand dependent and independent variables, and execute appropriate data transformations and imputations. Our train dataset cosists of fourty-eight predictors: our dependent variable and binary Y/N indicator of "suppdem" and 47 other numerical and categorical predictor variables. A summary statistics on our raw train dataset reveals many important information: (1) there does not seem to be glaring data entry mistakes (i.e. categorical, binary variables having non-binary inputs or certain variables having values outside the logical scope of range such as age of 200), (2) indepdent predictor variables "age", "education", "cnty_pct_religious", and "cnty_pct_evangelical" have missing values, and (3) the three numerical variables "density_rural", "density_suburban", and "density_urban" totals to 1 for each data entry. 
+
+To address the aforementioned issues, we first transform our "suppdem" variable into 1's and 0's and then mean-impute our missing numerical values for "age", "cnty_pct_religious", and "cnty_pct_evangelical" with missing value inidcators, using the *na_convert_mean* function provided in lecture notes. For the "education" predictor variable, however, we decided to change missing values by creating a new level "none" within the categorical predictor that will replace "NA". By doing so, we eliminate the need to also include missing value indicator as we did for numerical predictor variables. In order to address the issue of perect multicolinearity between "density_rural", "density_suburban", and "density_urban", we have decided to remove "density_urban" in order to give one more free degree of freedom for our models to train on. Also, this is not arbitrary, rather we later find that "density_rural" and "density_suburban" will be selected prior to "density_urban" in our model.
+
+## Model Selection
+Since we had been using step-wise deviance selection method throughout our semester, we decided to implement *stepwise_deviance_selector* function. The inputs of this fucntion is: (1) the training dataset, (2) an array of pre-selected predictors on top of which a new predictor variable is added to, (3) a default boolean of "log" that will allow you to log-transform income measures of "ppi" and "census_median_income", and (4) a default alpha value of 0.05 that can be changed for different significance levels. The returned element from this *stepwise_deviance_selector* function is: (1) the name of the selected variable, if any, or a blank string, if no new variable can be added to the model, (2) a boolean indicator that indicates that the variable is missing certain data entrys, (3) the p-value of the likelihood ratio test of the deviances (which will return 0.05 or assigned alpha value, if no new predictor variable is added), and (4) another boolean inidcator that suggest whether or not to incorporate the missing value indicators should the newly selecte predictor have missing values.
+
+Utilizing a do-while loop in R, the step-wise deviance selection method on a binomial logistic model returned the following predictors in sequential order: "combined_ethnicity_4way", "density_rural", "sex", "liberal_donor", "interest_in_religion", "cnty_pct_evangelical", "conservative_donor", "guns_1", "single", "education", "density_suburban", "contbrel_1", "num_children", "apparel_1", "cat_1", "cnty_pct_religious". Interestingly, the missing values indicators for both "cnty_pct_evangelical" and "cnty_pct_religious" are not included, as the inclusion of those indicators did not improve our model. You can see the full deviance table as shown below. This is our *basic_nointeraction_model* whose log-Loss score of 0.594 is impressive and predicted values on the test dataset beat the benchmark logistic model. 
+
+Nonetheless, the basic model did not incorpoate any income measures, so we re-ran the same deviance-based selection method on the same training set with log-transformed values of "ppi" and "census_median_income".
+
+
+
+
+
 
 ## Introduction and Setup
 ### Download Packages & Load Dataset
@@ -170,6 +189,7 @@ library(faraway)
 library(Metrics)
 library(randomForest)
 library(rpart)
+library(rpart.plot)
 library(mgcv)
 ```
 
@@ -303,6 +323,9 @@ predictors_interactions = predictors
 ```
 
 ```{r}
+model_interaction = glm(formula = paste("suppdem ~ ", do.call(paste, c(as.list(predictors_interactions), sep = " + "))),
+            family = binomial, data = looptrain)
+
 # fitted vs standardized residuals
 plot(fitted(model_interaction), rstandard(model_interaction),
            xlab="Averaged fitted probabilities",
@@ -336,9 +359,6 @@ print(hosmerlem(model_interaction$y, fitted(model_interaction), g=6))
 
 ### Selected Model w/ Interaction Prediction
 ```{r}
-model_interaction = glm(formula = paste("suppdem ~ ", do.call(paste, c(as.list(predictors_interactions), sep = " + "))),
-            family = binomial, data = looptrain)
-
 interaction.preds = predict(model_interaction, newdata=looptrain, type="response")
 
 test.logna = na.convert.mean(test)
@@ -380,6 +400,7 @@ sc.rf = randomForest(suppdem~combined_ethnicity_4way+density_rural+liberal_donor
                      contbrel_1+num_children+apparel_1+cat_1+cnty_pct_religious, m.try=32, data=looptrain, na.action=na.roughfix)
 sc.rf
 ```
+
 ```{r}
 rf.preds = predict(sc.rf, newdata=looptrain)
 
@@ -395,58 +416,23 @@ write.csv(testpreds, "./model_rf.csv")
 
 
 
-
-
-
-
 ### Model Comparisons 
 ```{r}
-model_basic = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single + apparel_1 + education + cat_1 + num_children, family = binomial, data = within(mytrain.loginc.na, rm("density_urban")))
+model_basic = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 
+                  + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single + apparel_1 + education 
+                  + cat_1 + num_children, family = binomial, data = within(mytrain.loginc.na, rm("density_urban")))
+model_basic_probit = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 
+                         + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single + apparel_1 + education 
+                         + cat_1 + num_children, family = binomial(link="probit"), data = within(mytrain.loginc.na, rm("density_urban")))
+model_basic_cloglog = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1
+                          + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single + apparel_1 + education
+                          + cat_1 + num_children, family = binomial(link="cloglog"), data = within(mytrain.loginc.na, rm("density_urban")))
 model_interaction = glm(formula = paste("suppdem ~ ", do.call(paste, c(as.list(predictors_interactions), sep = " + ")))
-            , family = binomial, data = within(mytrain.loginc.na, rm("density_urban")))
-model_basic_probit = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single + apparel_1 + education + cat_1 + num_children, family = binomial(link="probit"), data = within(mytrain.loginc.na, rm("density_urban")))
+                        , family = binomial, data = within(mytrain.loginc.na, rm("density_urban")))
 model_interaction_probit = glm(formula = paste("suppdem ~ ", do.call(paste, c(as.list(predictors_interactions), sep = " + ")))
-            , family = binomial(link="probit"), data = within(mytrain.loginc.na, rm("density_urban")))
-model_basic_cloglog = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single + apparel_1 + education + cat_1 + num_children, family = binomial(link="cloglog"), data = within(mytrain.loginc.na, rm("density_urban")))
+                               , family = binomial(link="probit"), data = within(mytrain.loginc.na, rm("density_urban")))
 model_interaction_cloglog = glm(formula = paste("suppdem ~ ", do.call(paste, c(as.list(predictors_interactions), sep = " + ")))
-            , family = binomial(link="cloglog"), data = within(mytrain.loginc.na, rm("density_urban")))
+                                , family = binomial(link="cloglog"), data = within(mytrain.loginc.na, rm("density_urban")))
 anova(model_basic, model_basic_probit, model_basic_cloglog, model_interaction, model_interaction_probit, model_interaction_cloglog, test="Chisq")
 ```
-### Step-wise deviance with higher alpha
 
-
-### Step-wise deviance on basic probit & logit model (binomial fam)
- Perhaps we should improve our stepwise_deviance_selector to do the loop exhaustively until it reaches insignificance
-
-### Testing
-### Step-wise Deviance
-### Fitting various models
-### Data Imputer
-
-
-## Predictions
-### Results and Conclusions
-### Log-loss 
-
-
-
-### MIDPOINT STUFF: REMOVE THIS CHUNK
-```{r}
-stepwise_deviance_selector(within(mytrain, rm("density_urban")), c("combined_ethnicity_4way", "density_rural", "sex", "interest_in_religion", "liberal_donor", "guns_1", "density_suburban", "conservative_donor", "cnty_pct_evangelical"))
-
-
-midpoint_model= glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + cnty_pct_evangelical.na,
-            family = binomial, data = mytrain.na)
-preds = predict(midpoint_model, data=mytrain.na, type="response")
-logLoss(mytrain.na$suppdem, preds)
-
-# Midpoint model on test data
-myval.na = na.convert.mean(myvalidate)
-predsval = predict(midpoint_model, data=myval.na, type="response")
-logLoss(myval.na$suppdem, predsval)
-
-test.na = na.convert.mean(test)
-testpreds = predict(midpoint_model, newdata=test.na, type="response")
-testpreds = setNames(data.frame(testpreds), c("suppdem"))
-write.csv(testpreds, "./midpoint_model_test.csv")
-```

@@ -248,25 +248,28 @@ print(predictors)
 predictors_nointeractions = predictors
 ```
 ### Comparison of Stepwise Models
+
 ```{r}
-model00 = glm(formula = suppdem ~ 1, family = binomial, data = mytrain)
-model01 = glm(formula = suppdem ~ combined_ethnicity_4way, family = binomial, data = mytrain)
-model02 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural, family = binomial, data = mytrain)
-model03 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex, family = binomial, data = mytrain)
-model04 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion, family = binomial, data = mytrain)
-model05 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor, family = binomial, data = mytrain)
-model06 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1, family = binomial, data = mytrain)
-model07 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban, family = binomial, data = within(mytrain, rm("density_urban")))
-model08 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor, family = binomial, data = within(mytrain, rm("density_urban")))
-model09 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical, family = binomial, data = within(mytrain.na, rm("density_urban")))
-model10 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1, family = binomial, data = within(mytrain.na, rm("density_urban")))
-model11 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single, family = binomial, data = within(mytrain.na, rm("density_urban")))
-model12 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single + apparel_1, family = binomial, data = within(mytrain.na, rm("density_urban")))
-model13 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single + apparel_1 + education, family = binomial, data = within(mytrain.na, rm("density_urban")))
-model14 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single + apparel_1 + education + cat_1, family = binomial, data = within(mytrain.na, rm("density_urban")))
-model15 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single + apparel_1 + education + cat_1 + num_children, family = binomial, data = within(mytrain.na, rm("density_urban")))
-anova(model00, model01, model02, model03, model04, model05, model06, model07, model08, model09, model10, model11, model12, model13, model14, model15, test="Chisq")
+model00 = glm(formula = suppdem ~ 1, family = binomial, data = within(mytrain.na, rm("density_urban")))
+model01 = glm(formula = suppdem ~ combined_ethnicity_4way, family = binomial, data = within(mytrain.na, rm("density_urban")))
+model02 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural, family = binomial, data = within(mytrain.na, rm("density_urban")))
+model03 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex, family = binomial, data = within(mytrain.na, rm("density_urban")))
+model04 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + liberal_donor, family = binomial, data = within(mytrain.na, rm("density_urban")))
+model05 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + liberal_donor + interest_in_religion, family = binomial, data = within(mytrain.na, rm("density_urban")))
+model06 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + liberal_donor + interest_in_religion + cnty_pct_evangelical, family = binomial, data = within(mytrain.na, rm("density_urban")))
+model07 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + liberal_donor + interest_in_religion + cnty_pct_evangelical + conservative_donor, family = binomial, data = within(mytrain.na, rm("density_urban")))
+model08 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + liberal_donor + interest_in_religion + cnty_pct_evangelical + conservative_donor + guns_1, family = binomial, data = within(mytrain.na, rm("density_urban")))
+model09 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + liberal_donor + interest_in_religion + cnty_pct_evangelical + conservative_donor + guns_1 + single, family = binomial, data = within(mytrain.na, rm("density_urban")))
+model10 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + liberal_donor + interest_in_religion + cnty_pct_evangelical + conservative_donor + guns_1 + single + education, family = binomial, data = within(mytrain.na, rm("density_urban")))
+model11 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + liberal_donor + interest_in_religion + cnty_pct_evangelical + conservative_donor + guns_1 + single + education + density_suburban, family = binomial, data = within(mytrain.na, rm("density_urban")))
+model12 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + liberal_donor + interest_in_religion + cnty_pct_evangelical + conservative_donor + guns_1 + single + education + density_suburban + contbrel_1, family = binomial, data = within(mytrain.na, rm("density_urban")))
+model13 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural  +sex + liberal_donor + interest_in_religion + cnty_pct_evangelical + conservative_donor + guns_1 + single + education + density_suburban + contbrel_1 + num_children, family = binomial, data = within(mytrain.na, rm("density_urban")))
+model14 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + liberal_donor + interest_in_religion + cnty_pct_evangelical + conservative_donor + guns_1 + single + education + density_suburban + contbrel_1 + num_children + apparel_1, family = binomial, data = within(mytrain.na, rm("density_urban")))
+model15 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + liberal_donor + interest_in_religion + cnty_pct_evangelical + conservative_donor + guns_1 + single + education + density_suburban + contbrel_1 + num_children + apparel_1 + cat_1, family = binomial, data = within(mytrain.na, rm("density_urban")))
+model16 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + liberal_donor + interest_in_religion + cnty_pct_evangelical + conservative_donor + guns_1 + single + education + density_suburban + contbrel_1 + num_children + apparel_1 + cat_1 + cnty_pct_religious, family = binomial, data = within(mytrain.na, rm("density_urban")))
+anova(model00, model01, model02, model03, model04, model05, model06, model07, model08, model09, model10, model11, model12, model13, model14, model15, model16, test="Chisq")
 ```
+
 ### Selected Model Prediction
 ```{r}
 model_nointeraction = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single + apparel_1 + education + cat_1 + num_children, family = binomial, data = within(mytrain.na, rm("density_urban")))
@@ -300,11 +303,12 @@ while (stepwise_deviance_selector(looptrain, predictors, log = TRUE)[1] != "")
   }
 }
 print(predictors)
+predictors_loginc = predictors
 ```
 
 ### Testing out some interactions
 ```{r}
-model32 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single + apparel_1 + education + cat_1 + num_children + education:log(census_median_income), family = binomial, data = within(mytrain.loginc.na, rm("density_urban")))
+model32 = glm(formula = suppdem ~ combined_ethnicity_4way + density_rural + sex + interest_in_religion + liberal_donor + guns_1 + density_suburban + conservative_donor + cnty_pct_evangelical + contbrel_1 + single + apparel_1 + education + cat_1 + num_children + education:ppi, family = binomial, data = within(mytrain.loginc.na, rm("density_urban")))
 anova(model15, model32, test="Chisq")
 ```
 ### While-loop for Interactions
@@ -387,6 +391,28 @@ logLoss(looptrain$suppdem, smooth.preds)
 testpreds = predict(model_smoothed, newdata=test.logna, type="response")
 testpreds = setNames(data.frame(testpreds), c("suppdem"))
 write.csv(testpreds, "./model_interaction_test_smoothing.csv")
+```
+### GAM 
+```{r}
+GAM <- gam(suppdem ~ combined_ethnicity_4way+density_rural+liberal_donor+sex+s(cnty_pct_evangelical)
+                     +interest_in_religion+conservative_donor+guns_1+conservative_donor+single+education+density_suburban+
+                     contbrel_1+num_children+apparel_1+cat_1+s(cnty_pct_religious)+liberal_donor:census_median_income+
+                       sex:age+combined_ethnicity_4way:census_median_income+density_rural:age+education:ppi+cat_1:age+
+                       interest_in_religion:age+combined_ethnicity_4way:cnty_pct_evangelical+density_suburban:cnty_pct_religious
+           , data = looptrain, family = binomial)
+anova(model_interaction, GAM, test="Chisq")
+
+```
+### GAM 
+```{r}
+GAM <- gam(suppdem ~ combined_ethnicity_4way+density_rural+liberal_donor+sex+s(cnty_pct_evangelical)
+                     +interest_in_religion+conservative_donor+guns_1+conservative_donor+single+education+density_suburban+
+                     contbrel_1+num_children+apparel_1+cat_1+s(cnty_pct_religious)+liberal_donor:census_median_income+
+                       sex:age+combined_ethnicity_4way:census_median_income+density_rural:age+education:ppi+cat_1:age+
+                       interest_in_religion:age+combined_ethnicity_4way:cnty_pct_evangelical+density_suburban:cnty_pct_religious
+           , data = looptrain, family = binomial)
+anova(model_interaction, GAM, test="Chisq")
+
 ```
 ### Random Forest Cross Validation
 ```{r}

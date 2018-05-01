@@ -401,18 +401,21 @@ GAM <- gam(suppdem ~ combined_ethnicity_4way+density_rural+liberal_donor+sex+s(c
                        interest_in_religion:age+combined_ethnicity_4way:cnty_pct_evangelical+density_suburban:cnty_pct_religious
            , data = looptrain, family = binomial)
 anova(model_interaction, GAM, test="Chisq")
+plot(GAM, residuals = TRUE, all.terms = TRUE, shade = TRUE, shade.col = 2, pages = 2)
 
 ```
-### GAM 
+### DecisionTree 
 ```{r}
-GAM <- gam(suppdem ~ combined_ethnicity_4way+density_rural+liberal_donor+sex+s(cnty_pct_evangelical)
+DecisionTree <- rpart(suppdem ~ combined_ethnicity_4way+density_rural+liberal_donor+sex+cnty_pct_evangelical
                      +interest_in_religion+conservative_donor+guns_1+conservative_donor+single+education+density_suburban+
-                     contbrel_1+num_children+apparel_1+cat_1+s(cnty_pct_religious)+liberal_donor:census_median_income+
-                       sex:age+combined_ethnicity_4way:census_median_income+density_rural:age+education:ppi+cat_1:age+
-                       interest_in_religion:age+combined_ethnicity_4way:cnty_pct_evangelical+density_suburban:cnty_pct_religious
-           , data = looptrain, family = binomial)
-anova(model_interaction, GAM, test="Chisq")
+                     contbrel_1+num_children+apparel_1+cat_1+cnty_pct_religious
+           , data = looptrain)
+printcp(DecisionTree)
+plotcp(DecisionTree)
 
+DecisionTreeprune = prune(DecisionTree, cp = 0.010000)
+print(DecisionTreeprune)
+rpart.plot(DecisionTreeprune)
 ```
 ### Random Forest Cross Validation
 ```{r}
